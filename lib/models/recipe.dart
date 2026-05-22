@@ -5,7 +5,7 @@ class Recipe {
   final String title;
   final String description;
   final String category;
-  final String cuisine; // кухня мира
+  final String cuisine;
   final String emoji;
   final int cookTime;
   final int prepTime;
@@ -41,9 +41,38 @@ class Recipe {
 
   int get totalTime => cookTime + prepTime;
 
-  // Красивые градиентные фото от foodish API и других бесплатных источников
-  // Используем DummyImage и foodish — работают без ключа
-  // Локальный asset — работает без интернета!
+  // Локальный asset — фото встроены в APK, работают без интернета
   String get imageUrl => 'assets/food/$id.jpg';
 
+  String get difficultyEmoji {
+    switch (difficulty) {
+      case 'Легко':  return '🟢';
+      case 'Средне': return '🟡';
+      case 'Сложно': return '🔴';
+      default:       return '🟢';
+    }
+  }
 
+  Color get difficultyColor {
+    switch (difficulty) {
+      case 'Легко':  return const Color(0xFF4CAF50);
+      case 'Средне': return const Color(0xFFFF9800);
+      case 'Сложно': return const Color(0xFFF44336);
+      default:       return const Color(0xFF4CAF50);
+    }
+  }
+}
+
+class Ingredient {
+  final String name;
+  final String amount;
+  final String unit;
+  final String? emoji;
+
+  const Ingredient({
+    required this.name,
+    required this.amount,
+    required this.unit,
+    this.emoji,
+  });
+}
