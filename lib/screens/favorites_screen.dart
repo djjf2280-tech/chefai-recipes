@@ -2,21 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/favorites_service.dart';
 import '../data/recipes_data.dart';
-import '../widgets/recipe_card.dart';
-import 'recipe_detail_screen.dart';
 import '../main.dart';
+import 'home_screen.dart';
+import 'recipe_detail_screen.dart';
 
 class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final favs = context.watch<FavoritesService>().favorites;
-    final allRecipes = context.watch<RecipesData>().allRecipes;
-    final favRecipes = allRecipes.where((r) => favs.contains(r.id)).toList();
+    final favIds = context.watch<FavoritesService>().favorites;
+    final favs = context.watch<RecipesData>().allRecipes.where((r) => favIds.contains(r.id)).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F4F0),
+      backgroundColor: AppTheme.bg,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -26,76 +25,47 @@ class FavoritesScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Избранное',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.dark,
-                      ),
-                    ),
+                    const Text('Избранное', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: AppTheme.dark)),
                     const SizedBox(height: 4),
-                    Text(
-                      '${favRecipes.length} рецептов сохранено',
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 14,
-                      ),
-                    ),
+                    Text('${favs.length} рецептов сохранено', style: TextStyle(color: AppTheme.grey, fontSize: 14)),
                     const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
-            if (favRecipes.isEmpty)
-              const SliverFillRemaining(
+            if (favs.isEmpty)
+              SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('❤️', style: TextStyle(fontSize: 80)),
-                      SizedBox(height: 20),
-                      Text(
-                        'Нет избранных рецептов',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.dark,
-                        ),
+                      Container(
+                        width: 100, height: 100,
+                        decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(30)),
+                        child: const Center(child: Text('❤️', style: TextStyle(fontSize: 50))),
                       ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Нажми ❤️ на рецепте, чтобы сохранить',
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
-                        textAlign: TextAlign.center,
-                      ),
+                      const SizedBox(height: 20),
+                      const Text('Нет избранных', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.dark)),
+                      const SizedBox(height: 8),
+                      Text('Нажми ❤️ на рецепте чтобы сохранить', style: TextStyle(color: AppTheme.grey, fontSize: 14), textAlign: TextAlign.center),
                     ],
                   ),
                 ),
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.78,
+                    crossAxisCount: 2, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: 0.72,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (ctx, i) => RecipeCard(
-                      recipe: favRecipes[i],
-                      onTap: () => Navigator.push(
-                        ctx,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              RecipeDetailScreen(recipe: favRecipes[i]),
-                        ),
-                      ),
+                      recipe: favs[i],
+                      onTap: () => Navigator.push(ctx, MaterialPageRoute(builder: (_) => RecipeDetailScreen(recipe: favs[i]))),
                     ),
-                    childCount: favRecipes.length,
+                    childCount: favs.length,
                   ),
                 ),
               ),
