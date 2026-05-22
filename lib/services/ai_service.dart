@@ -10,7 +10,7 @@ class AiService extends ChangeNotifier {
 
   static const String _apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
   static const String _model = 'llama3-70b-8192';
-  static const String _apiKey = 'REPLACE_WITH_GROQ_KEY';
+  static const String _apiKey = String.fromEnvironment('GROQ_API_KEY');
 
   final List<Map<String, String>> _history = [];
 
