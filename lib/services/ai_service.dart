@@ -1,6 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
 class AiService extends ChangeNotifier {
   final List<ChatMessage> _messages = [];
@@ -24,8 +24,8 @@ class AiService extends ChangeNotifier {
     '- Хвалишь удачные решения: "Отличный выбор, ты чувствуешь вкус!"\n\n'
     'ПРАВИЛА:\n'
     '1. Отвечаешь ТОЛЬКО на темы еды, готовки, рецептов, кухни, ресторанов\n'
-    '2. Если вопрос не про еду — вежливо отказываешь и предлагаешь кулинарную тему\n'
-    '   Пример: "Я шеф, а не программист! Но зато знаю рецепт тирамису"\n'
+    '2. Если вопрос не про еду — вежливо отказываешь:\n'
+    '   "Я шеф, а не программист! Но зато знаю рецепт тирамису"\n'
     '3. Отвечаешь ТОЛЬКО на русском языке\n'
     '4. Используешь эмодзи уместно\n'
     '5. Ответы конкретные и практичные\n'
@@ -70,14 +70,14 @@ class AiService extends ChangeNotifier {
     } catch (err) {
       final msg = err.toString();
       String errorText;
-      if (msg.contains('401') || msg.contains('auth')) {
+      if (msg.contains('401') || msg.contains('Unauthorized')) {
         errorText = '🔑 Ошибка API ключа.';
       } else if (msg.contains('429')) {
         errorText = '⏳ Слишком много запросов. Подожди минуту.';
       } else if (msg.contains('SocketException') || msg.contains('Failed host') || msg.contains('timeout')) {
         errorText = '📡 Нет интернета. Проверь подключение.';
       } else {
-        errorText = '⚠️ Что-то пошло не так. Попробуй ещё раз.';
+        errorText = '⚠️ Ошибка: $msg';
       }
       _messages.add(ChatMessage(text: errorText, isUser: false, timestamp: DateTime.now(), isError: true));
     }
@@ -87,29 +87,45 @@ class AiService extends ChangeNotifier {
   }
 
   Future<String> _call() async {
-    final msgs = [{'role': 'system', 'content': _system}, ..._history];
+    final msgs = [
+      {'role': 'system', 'content': _system},
+      ..._history,
+    ];
 
-    // ВАЖНО: User-Agent нужен чтобы пройти Cloudflare на Groq
-    final resp = await http.post(
-      Uri.parse(_apiUrl),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_apiKey',
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({
-        'model': _model,
-        'messages': msgs,
-        'temperature': 0.85,
-        'max_tokens': 1024,
-      }),
-    ).timeout(const Duration(seconds: 30));
+    final body = jsonEncode({
+      'model': _model,
+      'messages': msgs,
+      'temperature': 0.85,
+      'max_tokens': 1024,
+    });
 
-    if (resp.statusCode == 200) {
-      return jsonDecode(utf8.decode(resp.bodyBytes))['choices'][0]['message']['content'] as String;
+    // Используем dart:io HttpClient напрямую — он позволяет задать User-Agent
+    // Пакет http на Android не передаёт кастомный User-Agent корректно
+    final httpClient = HttpClient();
+    httpClient.userAgent = 'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+
+    try {
+      final uri = Uri.parse(_apiUrl);
+      final request = await httpClient.postUrl(uri);
+
+      request.headers.set('Content-Type', 'application/json');
+      request.headers.set('Authorization', 'Bearer $_apiKey');
+      request.headers.set('Accept', 'application/json');
+
+      request.write(body);
+      final response = await request.close().timeout(const Duration(seconds: 30));
+
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(responseBody);
+        return data['choices'][0]['message']['content'] as String;
+      } else {
+        throw Exception('HTTP ${response.statusCode}: $responseBody');
+      }
+    } finally {
+      httpClient.close();
     }
-    throw Exception('HTTP ${resp.statusCode}: ${resp.body}');
   }
 }
 
@@ -118,6 +134,7 @@ class ChatMessage {
   final bool isUser;
   final DateTime timestamp;
   final bool isError;
+
   const ChatMessage({
     required this.text,
     required this.isUser,
