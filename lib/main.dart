@@ -39,21 +39,16 @@ class RecipeAIApp extends StatelessWidget {
 }
 
 class AppTheme {
-  static const Color primary = Color(0xFFFF6B35);
-  static const Color secondary = Color(0xFFFF9F1C);
-  static const Color accent = Color(0xFF2EC4B6);
-  static const Color dark = Color(0xFF1A1A2E);
-  static const Color surface = Color(0xFFF5F0EB);
+  static const Color primary    = Color(0xFFFF6B35);
+  static const Color secondary  = Color(0xFFFF9F1C);
+  static const Color dark       = Color(0xFF1A1A2E);
+  static const Color bg         = Color(0xFFF7F3EF);
+  static const Color card       = Color(0xFFFFFFFF);
 
   static ThemeData get theme => ThemeData(
     useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: primary,
-      primary: primary,
-      secondary: secondary,
-      surface: surface,
-    ),
+    colorScheme: ColorScheme.fromSeed(seedColor: primary, primary: primary, secondary: secondary),
     textTheme: GoogleFonts.poppinsTextTheme(),
-    scaffoldBackgroundColor: surface,
+    scaffoldBackgroundColor: bg,
   );
 }
