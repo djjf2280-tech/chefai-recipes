@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/recipe.dart';
 import '../services/favorites_service.dart';
@@ -8,113 +9,96 @@ import 'ai_chat_screen.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final Recipe recipe;
-
   const RecipeDetailScreen({super.key, required this.recipe});
-
   @override
   State<RecipeDetailScreen> createState() => _RecipeDetailScreenState();
 }
 
-class _RecipeDetailScreenState extends State<RecipeDetailScreen>
-    with TickerProviderStateMixin {
-  late TabController _tabController;
+class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabs;
   int _servings = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
     _servings = widget.recipe.servings;
   }
 
   @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+  void dispose() { _tabs.dispose(); super.dispose(); }
 
-  double get _multiplier => _servings / widget.recipe.servings;
+  double get _mult => _servings / widget.recipe.servings;
 
   @override
   Widget build(BuildContext context) {
-    final recipe = widget.recipe;
-    final favorites = context.watch<FavoritesService>();
-    final isFav = favorites.isFavorite(recipe.id);
+    final r = widget.recipe;
+    final isFav = context.watch<FavoritesService>().isFavorite(r.id);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F4F0),
+      backgroundColor: AppTheme.bg,
       body: CustomScrollView(
         slivers: [
+          // ── HERO ФОТО ──
           SliverAppBar(
-            expandedHeight: 280,
+            expandedHeight: 300,
             pinned: true,
-            backgroundColor: recipe.categoryColor,
+            backgroundColor: r.categoryColor,
             leading: GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Container(
-                margin: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.arrow_back_ios_new_rounded,
-                    color: AppTheme.dark, size: 18),
+                margin: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.95), borderRadius: BorderRadius.circular(14)),
+                child: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.dark, size: 18),
               ),
             ),
             actions: [
               GestureDetector(
-                onTap: () => favorites.toggle(recipe.id),
+                onTap: () => context.read<FavoritesService>().toggle(r.id),
                 child: Container(
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  margin: const EdgeInsets.all(10),
                   padding: const EdgeInsets.all(8),
-                  child: Icon(
-                    isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: isFav ? Colors.red : Colors.grey,
-                    size: 22,
-                  ),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.95), borderRadius: BorderRadius.circular(14)),
+                  child: Icon(isFav ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                    color: isFav ? Colors.red : AppTheme.grey, size: 20),
                 ),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      recipe.categoryColor,
-                      recipe.categoryColor.withOpacity(0.8),
-                    ],
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CachedNetworkImage(
+                    imageUrl: r.imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => Container(
+                      color: r.categoryColor.withOpacity(0.3),
+                      child: Center(child: Text(r.categoryIcon, style: const TextStyle(fontSize: 100))),
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      color: r.categoryColor.withOpacity(0.3),
+                      child: Center(child: Text(r.categoryIcon, style: const TextStyle(fontSize: 100))),
+                    ),
                   ),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 60),
-                      Text(
-                        recipe.emoji,
-                        style: const TextStyle(fontSize: 100),
-                      ).animate().scale(
-                            delay: 100.ms,
-                            duration: 500.ms,
-                            curve: Curves.elasticOut,
-                          ),
-                    ],
+                  // Градиент
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                        colors: [Colors.black.withOpacity(0.1), Colors.black.withOpacity(0.5)],
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
 
+          // ── КОНТЕНТ ──
           SliverToBoxAdapter(
             child: Container(
               decoration: const BoxDecoration(
-                color: Color(0xFFF8F4F0),
+                color: AppTheme.bg,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
               ),
               child: Column(
@@ -125,121 +109,131 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Category
+                        // Категория тег
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: recipe.categoryColor.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            recipe.category,
-                            style: TextStyle(
-                              color: recipe.categoryColor,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                            ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(color: r.categoryColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(r.categoryIcon, style: const TextStyle(fontSize: 14)),
+                              const SizedBox(width: 6),
+                              Text(r.category, style: TextStyle(color: r.categoryColor, fontWeight: FontWeight.w700, fontSize: 13)),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 10),
-
-                        // Title
-                        Text(
-                          recipe.title,
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.dark,
-                            height: 1.2,
-                          ),
-                        ),
-
+                        const SizedBox(height: 12),
+                        Text(r.title, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: AppTheme.dark, height: 1.2)),
                         const SizedBox(height: 8),
+                        Text(r.description, style: TextStyle(fontSize: 14, color: AppTheme.grey, height: 1.5)),
+                        const SizedBox(height: 20),
 
-                        // Description
-                        Text(
-                          recipe.description,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                            height: 1.5,
-                          ),
+                        // Статистика
+                        Row(
+                          children: [
+                            _StatBox(icon: Icons.timer_outlined, value: '${r.totalTime}', unit: 'мин', color: const Color(0xFF2196F3)),
+                            const SizedBox(width: 10),
+                            _StatBox(icon: Icons.local_fire_department_outlined, value: '${r.calories}', unit: 'ккал', color: AppTheme.primary),
+                            const SizedBox(width: 10),
+                            _StatBox(icon: Icons.people_alt_outlined, value: '${r.servings}', unit: 'порц.', color: const Color(0xFF9C27B0)),
+                            const SizedBox(width: 10),
+                            _StatBox(
+                              icon: r.difficulty == 'Легко' ? Icons.sentiment_satisfied_rounded
+                                  : r.difficulty == 'Средне' ? Icons.sentiment_neutral_rounded
+                                  : Icons.sentiment_very_dissatisfied_rounded,
+                              value: r.difficulty, unit: '',
+                              color: r.difficulty == 'Легко' ? const Color(0xFF4CAF50)
+                                  : r.difficulty == 'Средне' ? const Color(0xFFFFC107)
+                                  : const Color(0xFFE53935),
+                            ),
+                          ],
                         ),
 
                         const SizedBox(height: 20),
 
-                        // Stats row
-                        _buildStatsRow(recipe),
-
-                        const SizedBox(height: 20),
-
-                        // Servings control
-                        _buildServingsControl(),
+                        // Пересчёт порций
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12)]),
+                          child: Row(
+                            children: [
+                              const Text('🍽️', style: TextStyle(fontSize: 20)),
+                              const SizedBox(width: 10),
+                              const Text('Порций', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                              const Spacer(),
+                              _ServingBtn(icon: Icons.remove_rounded, onTap: () { if (_servings > 1) setState(() => _servings--); }),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text('$_servings', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.primary)),
+                              ),
+                              _ServingBtn(icon: Icons.add_rounded, onTap: () => setState(() => _servings++), filled: true),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
 
-                  // Tabs
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: TabBar(
-                      controller: _tabController,
-                      indicator: BoxDecoration(
-                        color: AppTheme.primary,
-                        borderRadius: BorderRadius.circular(12),
+                  // Табы
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: Container(
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)]),
+                      child: TabBar(
+                        controller: _tabs,
+                        indicator: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(12)),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        labelColor: Colors.white,
+                        unselectedLabelColor: AppTheme.grey,
+                        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        padding: const EdgeInsets.all(4),
+                        tabs: const [
+                          Tab(text: '🥕 Состав'),
+                          Tab(text: '👨‍🍳 Шаги'),
+                          Tab(text: '💡 Советы'),
+                        ],
                       ),
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.grey,
-                      labelStyle: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                      padding: const EdgeInsets.all(4),
-                      tabs: const [
-                        Tab(text: '🥕 Состав'),
-                        Tab(text: '👨‍🍳 Шаги'),
-                        Tab(text: '💡 Советы'),
-                      ],
                     ),
                   ),
 
                   SizedBox(
-                    height: 500,
+                    height: 480,
                     child: TabBarView(
-                      controller: _tabController,
+                      controller: _tabs,
+                      physics: const NeverScrollableScrollPhysics(),
                       children: [
-                        _buildIngredientsTab(recipe),
-                        _buildStepsTab(recipe),
-                        _buildTipsTab(recipe),
+                        _IngredientsTab(recipe: r, multiplier: _mult),
+                        _StepsTab(recipe: r),
+                        _TipsTab(recipe: r),
                       ],
                     ),
                   ),
 
-                  // AI Button
+                  // Кнопка ШефАИ
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                    child: ElevatedButton.icon(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AiChatScreen(
-                            initialMessage:
-                                'Расскажи подробнее о рецепте "${recipe.title}". Какие секреты и советы есть по его приготовлению?',
-                          ),
-                        ),
-                      ),
-                      icon: const Icon(Icons.auto_awesome_rounded),
-                      label: const Text('Спросить ШефАИ об этом рецепте'),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(56),
-                        shape: RoundedRectangleBorder(
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => AiChatScreen(initialMessage: 'Расскажи подробнее о рецепте "${r.title}". Какие секреты приготовления?'),
+                      )),
+                      child: Container(
+                        height: 58,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)]),
                           borderRadius: BorderRadius.circular(18),
+                          boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 6))],
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('👨‍🍳', style: TextStyle(fontSize: 20)),
+                            SizedBox(width: 10),
+                            Text('Спросить Шефа Максима', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
+                            SizedBox(width: 8),
+                            Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+                          ],
                         ),
                       ),
                     ),
@@ -252,200 +246,103 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       ),
     );
   }
+}
 
-  Widget _buildStatsRow(Recipe recipe) {
-    return Row(
-      children: [
-        _StatCard(
-          icon: '⏱️',
-          value: '${recipe.totalTime}',
-          unit: 'мин',
-          color: const Color(0xFF2196F3),
-        ),
-        const SizedBox(width: 10),
-        _StatCard(
-          icon: '🔥',
-          value: '${recipe.calories}',
-          unit: 'ккал',
-          color: AppTheme.primary,
-        ),
-        const SizedBox(width: 10),
-        _StatCard(
-          icon: recipe.difficultyEmoji,
-          value: recipe.difficulty,
-          unit: '',
-          color: const Color(0xFF4CAF50),
-        ),
-        const SizedBox(width: 10),
-        _StatCard(
-          icon: '👥',
-          value: '${recipe.servings}',
-          unit: 'порц.',
-          color: const Color(0xFF9C27B0),
-        ),
-      ],
-    );
-  }
+// ── ВКЛАДКИ ──
 
-  Widget _buildServingsControl() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          const Text('🍽️', style: TextStyle(fontSize: 20)),
-          const SizedBox(width: 10),
-          const Text(
-            'Порций',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-          ),
-          const Spacer(),
-          GestureDetector(
-            onTap: () {
-              if (_servings > 1) setState(() => _servings--);
-            },
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.remove_rounded, size: 18),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Text(
-              '$_servings',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.primary,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: () => setState(() => _servings++),
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppTheme.primary,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+class _IngredientsTab extends StatelessWidget {
+  final Recipe recipe;
+  final double multiplier;
+  const _IngredientsTab({required this.recipe, required this.multiplier});
 
-  Widget _buildIngredientsTab(Recipe recipe) {
+  @override
+  Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       physics: const NeverScrollableScrollPhysics(),
       itemCount: recipe.ingredients.length,
-      itemBuilder: (ctx, i) {
+      itemBuilder: (_, i) {
         final ing = recipe.ingredients[i];
-        final amount = _parseAndMultiply(ing.amount, _multiplier);
+        final rawAmt = double.tryParse(ing.amount.replaceAll(',', '.'));
+        final displayAmt = rawAmt != null
+            ? (rawAmt * multiplier == (rawAmt * multiplier).roundToDouble()
+                ? (rawAmt * multiplier).toInt().toString()
+                : (rawAmt * multiplier).toStringAsFixed(1))
+            : ing.amount;
         return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            color: Colors.white, borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
           ),
           child: Row(
             children: [
-              Text(ing.emoji ?? '🥄', style: const TextStyle(fontSize: 22)),
+              Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(color: AppTheme.lightGrey, borderRadius: BorderRadius.circular(12)),
+                child: Center(child: Text(ing.emoji, style: const TextStyle(fontSize: 20))),
+              ),
               const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  ing.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: AppTheme.dark,
-                  ),
-                ),
-              ),
-              Text(
-                '$amount ${ing.unit}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  color: AppTheme.primary,
-                ),
-              ),
+              Expanded(child: Text(ing.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.dark))),
+              Text('$displayAmt ${ing.unit}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.primary)),
             ],
           ),
         ).animate().fadeIn(delay: (i * 50).ms).slideX(begin: 0.1, end: 0);
       },
     );
   }
+}
 
-  Widget _buildStepsTab(Recipe recipe) {
+class _StepsTab extends StatelessWidget {
+  final Recipe recipe;
+  const _StepsTab({required this.recipe});
+
+  @override
+  Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       physics: const NeverScrollableScrollPhysics(),
       itemCount: recipe.steps.length,
-      itemBuilder: (ctx, i) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
+      itemBuilder: (_, i) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 36, height: 36,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.primary, AppTheme.secondary],
-                  ),
+                  gradient: const LinearGradient(colors: [AppTheme.primary, AppTheme.secondary]),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Center(
-                  child: Text(
-                    '${i + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
+                child: Center(child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15))),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
+                    color: Colors.white, borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
                   ),
-                  child: Text(
-                    recipe.steps[i],
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.5,
-                      color: AppTheme.dark,
-                    ),
-                  ),
+                  child: Text(recipe.steps[i], style: const TextStyle(fontSize: 14, height: 1.5, color: AppTheme.dark)),
                 ),
               ),
             ],
           ),
-        ).animate().fadeIn(delay: (i * 80).ms).slideX(begin: 0.1, end: 0);
+        ).animate().fadeIn(delay: (i * 70).ms).slideX(begin: 0.1, end: 0);
       },
     );
   }
+}
 
-  Widget _buildTipsTab(Recipe recipe) {
+class _TipsTab extends StatelessWidget {
+  final Recipe recipe;
+  const _TipsTab({required this.recipe});
+
+  @override
+  Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       physics: const NeverScrollableScrollPhysics(),
@@ -457,162 +354,60 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppTheme.primary.withOpacity(0.3),
-                  width: 1.5,
-                ),
+                border: Border.all(color: AppTheme.primary.withOpacity(0.25), width: 1.5),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12)],
               ),
-              child: Text(
-                recipe.tips!,
-                style: const TextStyle(
-                  fontSize: 15,
-                  height: 1.6,
-                  color: AppTheme.dark,
-                ),
-              ),
+              child: Text(recipe.tips!, style: const TextStyle(fontSize: 15, height: 1.65, color: AppTheme.dark)),
             ),
-          const SizedBox(height: 16),
-          _buildTimeInfo(recipe),
-          const SizedBox(height: 12),
-          _buildTagsRow(recipe),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeInfo(Recipe recipe) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '⏱️ Время',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _TimeRow(label: 'Подготовка', value: '${recipe.prepTime} мин'),
-              ),
-              Expanded(
-                child: _TimeRow(label: 'Готовка', value: '${recipe.cookTime} мин'),
-              ),
-              Expanded(
-                child: _TimeRow(
-                  label: 'Итого',
-                  value: '${recipe.totalTime} мин',
-                  bold: true,
+          const SizedBox(height: 14),
+          // Теги
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('🏷️ Теги', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: recipe.tags.map((t) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(color: AppTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                    child: Text('#$t', style: const TextStyle(color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                  )).toList(),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildTagsRow(Recipe recipe) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '🏷️ Теги',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: recipe.tags
-                .map((tag) => Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '#$tag',
-                        style: const TextStyle(
-                          color: AppTheme.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ))
-                .toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _parseAndMultiply(String amount, double multiplier) {
-    if (multiplier == 1.0) return amount;
-    final num = double.tryParse(amount.replaceAll(',', '.'));
-    if (num == null) return amount;
-    final result = num * multiplier;
-    if (result == result.roundToDouble()) {
-      return result.toInt().toString();
-    }
-    return result.toStringAsFixed(1);
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String icon;
+// ── ВСПОМОГАТЕЛЬНЫЕ ВИДЖЕТЫ ──
+
+class _StatBox extends StatelessWidget {
+  final IconData icon;
   final String value;
   final String unit;
   final Color color;
-
-  const _StatCard({
-    required this.icon,
-    required this.value,
-    required this.unit,
-    required this.color,
-  });
+  const _StatBox({required this.icon, required this.value, required this.unit, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(14),
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
         child: Column(
           children: [
-            Text(icon, style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-                color: color,
-              ),
-            ),
-            if (unit.isNotEmpty)
-              Text(
-                unit,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: color.withOpacity(0.7),
-                ),
-              ),
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 4),
+            Text(value, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: color)),
+            if (unit.isNotEmpty) Text(unit, style: TextStyle(fontSize: 10, color: color.withOpacity(0.7))),
           ],
         ),
       ),
@@ -620,37 +415,24 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _TimeRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool bold;
-
-  const _TimeRow({
-    required this.label,
-    required this.value,
-    this.bold = false,
-  });
+class _ServingBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool filled;
+  const _ServingBtn({required this.icon, required this.onTap, this.filled = false});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-            fontSize: bold ? 16 : 14,
-            color: bold ? AppTheme.primary : AppTheme.dark,
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34, height: 34,
+        decoration: BoxDecoration(
+          color: filled ? AppTheme.primary : AppTheme.lightGrey,
+          borderRadius: BorderRadius.circular(11),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey.shade500,
-          ),
-        ),
-      ],
+        child: Icon(icon, size: 18, color: filled ? Colors.white : AppTheme.dark),
+      ),
     );
   }
 }
