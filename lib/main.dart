@@ -9,16 +9,11 @@ import 'data/recipes_data.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ),
-  );
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+  ));
   runApp(const RecipeAIApp());
 }
 
@@ -34,9 +29,9 @@ class RecipeAIApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => RecipesData()),
       ],
       child: MaterialApp(
-        title: 'ChefAI — Рецепты',
+        title: 'ChefAI',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
+        theme: AppTheme.theme,
         home: const SplashScreen(),
       ),
     );
@@ -44,49 +39,18 @@ class RecipeAIApp extends StatelessWidget {
 }
 
 class AppTheme {
-  static const Color primary = Color(0xFFFF6B35);
-  static const Color secondary = Color(0xFFFF9F1C);
-  static const Color accent = Color(0xFF2EC4B6);
-  static const Color dark = Color(0xFF1A1A2E);
-  static const Color cardBg = Color(0xFFFFF8F5);
-  static const Color surface = Color(0xFFFFFBF9);
+  static const Color primary    = Color(0xFFFF6B35);
+  static const Color secondary  = Color(0xFFFF9F1C);
+  static const Color dark       = Color(0xFF1C1C1E);
+  static const Color grey       = Color(0xFF8E8E93);
+  static const Color lightGrey  = Color(0xFFF2F2F7);
+  static const Color cardBg     = Color(0xFFFFFFFF);
+  static const Color bg         = Color(0xFFF8F8FA);
 
-  static ThemeData get lightTheme => ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: primary,
-          primary: primary,
-          secondary: secondary,
-          tertiary: accent,
-          surface: surface,
-        ),
-        textTheme: GoogleFonts.poppinsTextTheme(),
-        cardTheme: CardTheme(
-          elevation: 0,
-          color: cardBg,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          titleTextStyle: GoogleFonts.poppins(
-            color: dark,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
-          iconTheme: const IconThemeData(color: dark),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: primary,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          ),
-        ),
-      );
+  static ThemeData get theme => ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(seedColor: primary, primary: primary),
+    textTheme: GoogleFonts.interTextTheme(),
+    scaffoldBackgroundColor: bg,
+  );
 }
