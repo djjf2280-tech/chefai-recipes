@@ -29,9 +29,8 @@ class RecipeCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               child: Stack(children: [
-                Positioned.fill(child: Image.network(
+                Positioned.fill(child: Image.asset(
                   recipe.imageUrl, fit: BoxFit.cover,
-                  loadingBuilder: (c, child, p) => p == null ? child : _placeholder(),
                   errorBuilder: (c, e, s) => _placeholder(),
                 )),
                 // Градиент снизу
