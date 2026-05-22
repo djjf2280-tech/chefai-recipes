@@ -5,7 +5,8 @@ class Recipe {
   final String title;
   final String description;
   final String category;
-  final String imageUrl;   // реальное фото Unsplash
+  final String emoji;
+  final String imageKeyword; // для Unsplash
   final int cookTime;
   final int prepTime;
   final int calories;
@@ -16,14 +17,14 @@ class Recipe {
   final List<String> tags;
   final String? tips;
   final Color categoryColor;
-  final String categoryIcon;
 
   const Recipe({
     required this.id,
     required this.title,
     required this.description,
     required this.category,
-    required this.imageUrl,
+    required this.emoji,
+    required this.imageKeyword,
     required this.cookTime,
     required this.prepTime,
     required this.calories,
@@ -34,22 +35,43 @@ class Recipe {
     required this.tags,
     this.tips,
     required this.categoryColor,
-    required this.categoryIcon,
   });
 
   int get totalTime => cookTime + prepTime;
+
+  // Unsplash Source — бесплатные случайные фото по ключевому слову
+  String get imageUrl =>
+      'https://source.unsplash.com/600x400/?${Uri.encodeComponent(imageKeyword)},food';
+
+  String get difficultyEmoji {
+    switch (difficulty) {
+      case 'Легко': return '🟢';
+      case 'Средне': return '🟡';
+      case 'Сложно': return '🔴';
+      default: return '🟢';
+    }
+  }
+
+  Color get difficultyColor {
+    switch (difficulty) {
+      case 'Легко': return const Color(0xFF4CAF50);
+      case 'Средне': return const Color(0xFFFF9800);
+      case 'Сложно': return const Color(0xFFF44336);
+      default: return const Color(0xFF4CAF50);
+    }
+  }
 }
 
 class Ingredient {
   final String name;
   final String amount;
   final String unit;
-  final String emoji;
+  final String? emoji;
 
   const Ingredient({
     required this.name,
     required this.amount,
     required this.unit,
-    this.emoji = '🥄',
+    this.emoji,
   });
 }
