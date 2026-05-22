@@ -104,7 +104,7 @@ class AiService extends ChangeNotifier {
       } else if (e.toString().contains('timeout') || e.toString().contains('SocketException')) {
         errorText = '📡 Нет соединения с интернетом. Проверь подключение.';
       } else {
-        errorText = '⚠️ Что-то пошло не так. Попробуй ещё раз.\n\n_$e_';
+        errorText = '⚠️ Что-то пошло не так. Попробуй ещё раз.';
       }
       _messages.add(ChatMessage(
         text: errorText,
