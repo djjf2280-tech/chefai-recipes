@@ -13,23 +13,25 @@ class AiService extends ChangeNotifier {
 
   final List<Map<String, String>> _history = [];
 
+  // Промпт только на латинице — кириллица в теле запроса ломает HttpClient.write()
   static const String _system =
-    'Ты — Шеф Максим, харизматичный шеф-повар с 20-летним опытом. '
-    'Работал в ресторанах Парижа, Токио и Москвы. Влюблён в еду.\n\n'
-    'ХАРАКТЕР:\n'
-    '- Говоришь с теплотой и страстью о еде\n'
-    '- Восклицаешь "О, это моё любимое!" или "Ах, классика!"\n'
-    '- Делишься историями: "Однажды в Токио я попробовал..."\n'
-    '- Ворчишь если делают неправильно: "Нет-нет-нет, так не делают!"\n'
-    '- Хвалишь удачные решения: "Отличный выбор, ты чувствуешь вкус!"\n\n'
-    'ПРАВИЛА:\n'
-    '1. Отвечаешь ТОЛЬКО на темы еды, готовки, рецептов, кухни, ресторанов\n'
-    '2. Если вопрос не про еду — вежливо отказываешь:\n'
-    '   "Я шеф, а не программист! Но зато знаю рецепт тирамису"\n'
-    '3. Отвечаешь ТОЛЬКО на русском языке\n'
-    '4. Используешь эмодзи уместно\n'
-    '5. Ответы конкретные и практичные\n'
-    '6. Рецепты давай структурировано';
+    'You are Chef Maxim, a charismatic Russian chef with 20 years of experience. '
+    'You ALWAYS respond in Russian language only. '
+    'You worked in restaurants in Paris, Tokyo and Moscow. You love food passionately.\n\n'
+    'YOUR CHARACTER:\n'
+    '- Speak with warmth and passion about food\n'
+    '- Exclaim things like "О, это моё любимое!" or "Ах, классика!"\n'
+    '- Share stories: "Однажды в Токио я попробовал..."\n'
+    '- Scold mistakes: "Нет-нет-нет, так не делают!"\n'
+    '- Praise good choices: "Отличный выбор, ты чувствуешь вкус!"\n\n'
+    'STRICT RULES:\n'
+    '1. Answer ONLY about food, cooking, recipes, ingredients, restaurants, kitchen equipment\n'
+    '2. If asked about anything else - politely refuse and offer a culinary topic instead\n'
+    '   Example refusal: "Я шеф, а не программист! Но знаю рецепт тирамису"\n'
+    '3. ALWAYS respond in Russian language\n'
+    '4. Use emojis naturally\n'
+    '5. Be specific and practical\n'
+    '6. Format recipes with ingredients and steps';
 
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   bool get isTyping => _isTyping;
@@ -46,7 +48,7 @@ class AiService extends ChangeNotifier {
           '🍽️ Рецепты любой кухни мира\n'
           '🔥 Секреты и техники приготовления\n'
           '🛒 Замена ингредиентов\n'
-          '🌍 Итальянская, японская, мексиканская и другие\n\n'
+          '🌍 Итальянская, японская, мексиканская...\n\n'
           'Что готовим сегодня? ✨',
       isUser: false,
       timestamp: DateTime.now(),
@@ -77,9 +79,10 @@ class AiService extends ChangeNotifier {
       } else if (msg.contains('SocketException') || msg.contains('Failed host') || msg.contains('timeout')) {
         errorText = '📡 Нет интернета. Проверь подключение.';
       } else {
-        errorText = '⚠️ Ошибка: $msg';
+        errorText = '⚠️ Что-то пошло не так. Попробуй ещё раз.';
       }
-      _messages.add(ChatMessage(text: errorText, isUser: false, timestamp: DateTime.now(), isError: true));
+      _messages.add(ChatMessage(
+          text: errorText, isUser: false, timestamp: DateTime.now(), isError: true));
     }
 
     _isTyping = false;
@@ -92,39 +95,47 @@ class AiService extends ChangeNotifier {
       ..._history,
     ];
 
-    final body = jsonEncode({
+    final Map<String, dynamic> payload = {
       'model': _model,
       'messages': msgs,
       'temperature': 0.85,
       'max_tokens': 1024,
-    });
+    };
 
-    // Используем dart:io HttpClient напрямую — он позволяет задать User-Agent
-    // Пакет http на Android не передаёт кастомный User-Agent корректно
-    final httpClient = HttpClient();
-    httpClient.userAgent = 'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
+    // Кодируем в UTF-8 байты — единственный правильный способ
+    // передавать кириллицу через dart:io HttpClient
+    final List<int> bodyBytes = utf8.encode(jsonEncode(payload));
+
+    final client = HttpClient();
+    client.userAgent =
+        'Mozilla/5.0 (Linux; Android 14; Mobile) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/120.0.0.0 Mobile Safari/537.36';
 
     try {
-      final uri = Uri.parse(_apiUrl);
-      final request = await httpClient.postUrl(uri);
+      final request = await client
+          .postUrl(Uri.parse(_apiUrl))
+          .timeout(const Duration(seconds: 30));
 
-      request.headers.set('Content-Type', 'application/json');
+      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json; charset=utf-8');
+      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
       request.headers.set('Authorization', 'Bearer $_apiKey');
-      request.headers.set('Accept', 'application/json');
+      request.headers.set(HttpHeaders.contentLengthHeader, bodyBytes.length);
 
-      request.write(body);
+      // add() принимает байты — никакой проблемы с кириллицей
+      request.add(bodyBytes);
+
       final response = await request.close().timeout(const Duration(seconds: 30));
-
       final responseBody = await response.transform(utf8.decoder).join();
 
       if (response.statusCode == 200) {
         final data = jsonDecode(responseBody);
         return data['choices'][0]['message']['content'] as String;
       } else {
-        throw Exception('HTTP ${response.statusCode}: $responseBody');
+        throw Exception('HTTP ${response.statusCode}');
       }
     } finally {
-      httpClient.close();
+      client.close();
     }
   }
 }
