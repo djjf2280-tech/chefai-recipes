@@ -1,0 +1,66 @@
+import 'package:flutter/material.dart';
+
+class Recipe {
+  final String id;
+  final String title;
+  final String description;
+  final String category;
+  final String emoji;
+  final int cookTime;
+  final int prepTime;
+  final int calories;
+  final String difficulty;
+  final int servings;
+  final List<Ingredient> ingredients;
+  final List<String> steps;
+  final List<String> tags;
+  final String? tips;
+  final Color categoryColor;
+
+  const Recipe({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.category,
+    required this.emoji,
+    required this.cookTime,
+    required this.prepTime,
+    required this.calories,
+    required this.difficulty,
+    required this.servings,
+    required this.ingredients,
+    required this.steps,
+    required this.tags,
+    this.tips,
+    required this.categoryColor,
+  });
+
+  int get totalTime => cookTime + prepTime;
+
+  String get difficultyEmoji {
+    switch (difficulty) {
+      case 'Легко':
+        return '🟢';
+      case 'Средне':
+        return '🟡';
+      case 'Сложно':
+        return '🔴';
+      default:
+        return '🟢';
+    }
+  }
+}
+
+class Ingredient {
+  final String name;
+  final String amount;
+  final String unit;
+  final String? emoji;
+
+  const Ingredient({
+    required this.name,
+    required this.amount,
+    required this.unit,
+    this.emoji,
+  });
+}
