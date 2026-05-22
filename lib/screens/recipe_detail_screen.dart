@@ -74,21 +74,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> with SingleTick
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    recipe.imageUrl,
+                  Image.asset(
+                  recipe.imageUrl,
                     fit: BoxFit.cover,
-                    loadingBuilder: (ctx, child, prog) {
-                      if (prog == null) return child;
-                      return Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [recipe.categoryColor.withOpacity(0.7), recipe.categoryColor],
-                            begin: Alignment.topLeft, end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: Center(child: Text(recipe.emoji, style: const TextStyle(fontSize: 100))),
-                      );
-                    },
                     errorBuilder: (ctx, e, s) => Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(colors: [recipe.categoryColor.withOpacity(0.7), recipe.categoryColor]),
