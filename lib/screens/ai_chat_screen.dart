@@ -32,7 +32,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
     if (text.isEmpty) return;
     _controller.clear();
     context.read<AiService>().sendMessage(text);
-    Future.delayed(const Duration(milliseconds: 300), _scrollToBottom);
+    Future.delayed(const Duration(milliseconds: 400), _scrollToBottom);
   }
 
   void _scrollToBottom() {
@@ -116,19 +116,14 @@ class _AiChatScreenState extends State<AiChatScreen> {
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: ai.isTyping
-                              ? Colors.orange
-                              : const Color(0xFF4CAF50),
+                          color: ai.isTyping ? Colors.orange : const Color(0xFF4CAF50),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        ai.isTyping ? 'Печатает...' : 'Онлайн',
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 12,
-                        ),
+                        ai.isTyping ? 'Думает...' : 'Онлайн',
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                       ),
                     ],
                   ),
@@ -136,21 +131,24 @@ class _AiChatScreenState extends State<AiChatScreen> {
               ],
             ),
           ),
+          // Бейдж Llama 3
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.1),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366f1), Color(0xFF8b5cf6)],
+              ),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.offline_bolt_rounded, color: AppTheme.primary, size: 14),
+                Text('⚡', style: TextStyle(fontSize: 12)),
                 SizedBox(width: 4),
                 Text(
-                  'Офлайн',
+                  'Llama 3',
                   style: TextStyle(
-                    color: AppTheme.primary,
+                    color: Colors.white,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -175,11 +173,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
             if (i == ai.messages.length && ai.isTyping) {
               return _TypingBubble();
             }
-            final msg = ai.messages[i];
-            return _MessageBubble(
-              message: msg,
-              key: ValueKey(i),
-            );
+            return _MessageBubble(message: ai.messages[i], key: ValueKey(i));
           },
         );
       },
@@ -188,11 +182,12 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
   Widget _buildQuickReplies() {
     final suggestions = [
-      '💡 Дай лайфхак',
-      '🔄 Замены в рецепте',
-      '🍗 Совет по курице',
-      '📏 Пересчёт порций',
-      '🌡️ Температуры',
+      '🍕 Рецепт пиццы',
+      '🔄 Замена яиц',
+      '🥩 Как жарить стейк',
+      '🍜 Рецепт рамена',
+      '💡 Кулинарный лайфхак',
+      '🌮 Мексиканская кухня',
     ];
 
     return SizedBox(
@@ -205,9 +200,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
           padding: const EdgeInsets.only(right: 8),
           child: GestureDetector(
             onTap: () {
-              _controller.text = suggestions[i]
-                  .replaceAll(RegExp(r'[^\w\sа-яА-Я ]'), '')
-                  .trim();
+              _controller.text = suggestions[i];
               _send();
             },
             child: Container(
@@ -216,6 +209,12 @@ class _AiChatScreenState extends State<AiChatScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 6,
+                  ),
+                ],
               ),
               child: Text(
                 suggestions[i],
@@ -257,12 +256,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
                 controller: _controller,
                 onSubmitted: (_) => _send(),
                 decoration: const InputDecoration(
-                  hintText: 'Спроси о готовке...',
+                  hintText: 'Спроси о рецепте или технике...',
                   border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
                 ),
                 maxLines: null,
@@ -271,28 +267,35 @@ class _AiChatScreenState extends State<AiChatScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          GestureDetector(
-            onTap: _send,
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.primary, AppTheme.secondary],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary.withOpacity(0.4),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+          Consumer<AiService>(
+            builder: (_, ai, __) => GestureDetector(
+              onTap: ai.isTyping ? null : _send,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: ai.isTyping
+                        ? [Colors.grey.shade300, Colors.grey.shade400]
+                        : [AppTheme.primary, AppTheme.secondary],
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.send_rounded,
-                color: Colors.white,
-                size: 20,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: ai.isTyping
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: AppTheme.primary.withOpacity(0.4),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                ),
+                child: Icon(
+                  ai.isTyping ? Icons.hourglass_bottom_rounded : Icons.send_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -304,7 +307,6 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
 class _MessageBubble extends StatelessWidget {
   final ChatMessage message;
-
   const _MessageBubble({super.key, required this.message});
 
   @override
@@ -313,8 +315,7 @@ class _MessageBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser) ...[
@@ -327,9 +328,7 @@ class _MessageBubble extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Center(
-                child: Text('👨‍🍳', style: TextStyle(fontSize: 18)),
-              ),
+              child: const Center(child: Text('👨‍🍳', style: TextStyle(fontSize: 18))),
             ),
             const SizedBox(width: 8),
           ],
@@ -337,17 +336,20 @@ class _MessageBubble extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: isUser ? AppTheme.primary : Colors.white,
+                color: message.isError
+                    ? Colors.red.shade50
+                    : isUser
+                        ? AppTheme.primary
+                        : Colors.white,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(20),
                   topRight: const Radius.circular(20),
-                  bottomLeft: isUser
-                      ? const Radius.circular(20)
-                      : const Radius.circular(4),
-                  bottomRight: isUser
-                      ? const Radius.circular(4)
-                      : const Radius.circular(20),
+                  bottomLeft: isUser ? const Radius.circular(20) : const Radius.circular(4),
+                  bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(20),
                 ),
+                border: message.isError
+                    ? Border.all(color: Colors.red.shade200)
+                    : null,
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
@@ -356,12 +358,16 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ],
               ),
-              child: _buildRichText(message.text, isUser),
+              child: SelectableText(
+                message.text,
+                style: TextStyle(
+                  color: isUser ? Colors.white : AppTheme.dark,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
             ),
-          )
-              .animate()
-              .fadeIn(duration: 300.ms)
-              .slideY(begin: 0.2, end: 0, duration: 300.ms),
+          ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.2, end: 0),
           if (isUser) ...[
             const SizedBox(width: 8),
             Container(
@@ -371,32 +377,12 @@ class _MessageBubble extends StatelessWidget {
                 color: AppTheme.primary.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Center(
-                child: Text('😊', style: TextStyle(fontSize: 18)),
-              ),
+              child: const Center(child: Text('😊', style: TextStyle(fontSize: 18))),
             ),
           ],
         ],
       ),
     );
-  }
-
-  Widget _buildRichText(String text, bool isUser) {
-    // Простой парсер markdown для **bold**
-    final spans = <TextSpan>[];
-    final parts = text.split('**');
-    for (int i = 0; i < parts.length; i++) {
-      spans.add(TextSpan(
-        text: parts[i],
-        style: TextStyle(
-          fontWeight: i % 2 == 1 ? FontWeight.w800 : FontWeight.w400,
-          color: isUser ? Colors.white : AppTheme.dark,
-          fontSize: 14,
-          height: 1.5,
-        ),
-      ));
-    }
-    return RichText(text: TextSpan(children: spans));
   }
 }
 
@@ -416,13 +402,11 @@ class _TypingBubble extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Center(
-              child: Text('👨‍🍳', style: TextStyle(fontSize: 18)),
-            ),
+            child: const Center(child: Text('👨‍🍳', style: TextStyle(fontSize: 18))),
           ),
           const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.only(
@@ -432,37 +416,22 @@ class _TypingBubble extends StatelessWidget {
                 bottomRight: Radius.circular(20),
               ),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 8,
-                ),
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8),
               ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                for (int i = 0; i < 3; i++)
-                  Container(
-                    width: 8,
-                    height: 8,
-                    margin: const EdgeInsets.only(right: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primary,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  )
-                      .animate(
-                        onPlay: (c) => c.repeat(),
-                      )
-                      .scaleXY(
-                        begin: 1,
-                        end: 1.5,
-                        delay: (i * 200).ms,
-                        duration: 400.ms,
-                      )
-                      .then()
-                      .scaleXY(begin: 1.5, end: 1, duration: 400.ms),
-              ],
+              children: List.generate(3, (i) => Container(
+                width: 8, height: 8,
+                margin: const EdgeInsets.only(right: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ).animate(onPlay: (c) => c.repeat())
+                .scaleXY(begin: 1, end: 1.5, delay: (i * 200).ms, duration: 400.ms)
+                .then()
+                .scaleXY(begin: 1.5, end: 1, duration: 400.ms)),
             ),
           ),
         ],
