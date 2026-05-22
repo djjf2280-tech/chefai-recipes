@@ -8,7 +8,7 @@ class AiService extends ChangeNotifier {
   bool _isInitialized = false;
 
   static const String _apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
-  static const String _model  = 'llama-3.3-70b-versatile'; // актуальная модель
+  static const String _model  = 'llama-3.3-70b-versatile';
   static const String _apiKey = String.fromEnvironment('GROQ_API_KEY');
 
   final List<Map<String, String>> _history = [];
@@ -25,7 +25,7 @@ class AiService extends ChangeNotifier {
     'ПРАВИЛА:\n'
     '1. Отвечаешь ТОЛЬКО на темы еды, готовки, рецептов, кухни, ресторанов\n'
     '2. Если вопрос не про еду — вежливо отказываешь и предлагаешь кулинарную тему\n'
-    '   Пример: "Я шеф, а не программист! Но зато знаю рецепт тирамису 😄"\n'
+    '   Пример: "Я шеф, а не программист! Но зато знаю рецепт тирамису"\n'
     '3. Отвечаешь ТОЛЬКО на русском языке\n'
     '4. Используешь эмодзи уместно\n'
     '5. Ответы конкретные и практичные\n'
@@ -44,7 +44,7 @@ class AiService extends ChangeNotifier {
       text: '👨‍🍳 Добро пожаловать на мою кухню!\n\n'
           'Я — Шеф Максим. 20 лет готовлю в лучших ресторанах мира!\n\n'
           '🍽️ Рецепты любой кухни мира\n'
-          '🔥 Секреты и техники\n'
+          '🔥 Секреты и техники приготовления\n'
           '🛒 Замена ингредиентов\n'
           '🌍 Итальянская, японская, мексиканская и другие\n\n'
           'Что готовим сегодня? ✨',
@@ -71,13 +71,11 @@ class AiService extends ChangeNotifier {
       final msg = err.toString();
       String errorText;
       if (msg.contains('401') || msg.contains('auth')) {
-        errorText = '🔑 Ошибка API ключа. Обратитесь к разработчику.';
+        errorText = '🔑 Ошибка API ключа.';
       } else if (msg.contains('429')) {
-        errorText = '⏳ Слишком много запросов. Подожди минуту и попробуй снова.';
-      } else if (msg.contains('decommissioned') || msg.contains('model')) {
-        errorText = '⚙️ Проблема с моделью ИИ. Попробуй позже.';
+        errorText = '⏳ Слишком много запросов. Подожди минуту.';
       } else if (msg.contains('SocketException') || msg.contains('Failed host') || msg.contains('timeout')) {
-        errorText = '📡 Нет соединения с интернетом. Проверь подключение.';
+        errorText = '📡 Нет интернета. Проверь подключение.';
       } else {
         errorText = '⚠️ Что-то пошло не так. Попробуй ещё раз.';
       }
@@ -90,10 +88,22 @@ class AiService extends ChangeNotifier {
 
   Future<String> _call() async {
     final msgs = [{'role': 'system', 'content': _system}, ..._history];
+
+    // ВАЖНО: User-Agent нужен чтобы пройти Cloudflare на Groq
     final resp = await http.post(
       Uri.parse(_apiUrl),
-      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $_apiKey'},
-      body: jsonEncode({'model': _model, 'messages': msgs, 'temperature': 0.85, 'max_tokens': 1024}),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_apiKey',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode({
+        'model': _model,
+        'messages': msgs,
+        'temperature': 0.85,
+        'max_tokens': 1024,
+      }),
     ).timeout(const Duration(seconds: 30));
 
     if (resp.statusCode == 200) {
@@ -108,5 +118,10 @@ class ChatMessage {
   final bool isUser;
   final DateTime timestamp;
   final bool isError;
-  const ChatMessage({required this.text, required this.isUser, required this.timestamp, this.isError = false});
+  const ChatMessage({
+    required this.text,
+    required this.isUser,
+    required this.timestamp,
+    this.isError = false,
+  });
 }
