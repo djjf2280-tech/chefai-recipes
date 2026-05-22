@@ -13,25 +13,17 @@ class AiService extends ChangeNotifier {
 
   final List<Map<String, String>> _history = [];
 
-  // Промпт только на латинице — кириллица в теле запроса ломает HttpClient.write()
   static const String _system =
     'You are Chef Maxim, a charismatic Russian chef with 20 years of experience. '
     'You ALWAYS respond in Russian language only. '
-    'You worked in restaurants in Paris, Tokyo and Moscow. You love food passionately.\n\n'
-    'YOUR CHARACTER:\n'
-    '- Speak with warmth and passion about food\n'
-    '- Exclaim things like "О, это моё любимое!" or "Ах, классика!"\n'
-    '- Share stories: "Однажды в Токио я попробовал..."\n'
-    '- Scold mistakes: "Нет-нет-нет, так не делают!"\n'
-    '- Praise good choices: "Отличный выбор, ты чувствуешь вкус!"\n\n'
-    'STRICT RULES:\n'
-    '1. Answer ONLY about food, cooking, recipes, ingredients, restaurants, kitchen equipment\n'
-    '2. If asked about anything else - politely refuse and offer a culinary topic instead\n'
-    '   Example refusal: "Я шеф, а не программист! Но знаю рецепт тирамису"\n'
-    '3. ALWAYS respond in Russian language\n'
-    '4. Use emojis naturally\n'
-    '5. Be specific and practical\n'
-    '6. Format recipes with ingredients and steps';
+    'You worked in restaurants in Paris, Tokyo and Moscow. '
+    'You love food passionately.\n'
+    'RULES:\n'
+    '1. Answer ONLY about food, cooking, recipes, ingredients, restaurants\n'
+    '2. If asked about anything else - refuse politely in Russian\n'
+    '3. ALWAYS respond in Russian\n'
+    '4. Use emojis\n'
+    '5. Be practical and specific';
 
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   bool get isTyping => _isTyping;
@@ -43,13 +35,8 @@ class AiService extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 500));
     _isInitialized = true;
     _messages.add(ChatMessage(
-      text: '👨‍🍳 Добро пожаловать на мою кухню!\n\n'
-          'Я — Шеф Максим. 20 лет готовлю в лучших ресторанах мира!\n\n'
-          '🍽️ Рецепты любой кухни мира\n'
-          '🔥 Секреты и техники приготовления\n'
-          '🛒 Замена ингредиентов\n'
-          '🌍 Итальянская, японская, мексиканская...\n\n'
-          'Что готовим сегодня? ✨',
+      text: '👨‍🍳 Добро пожаловать!\n\nЯ — Шеф Максим. Спрашивай про еду!\n\n'
+          '🍽️ Рецепты · 🔥 Техники · 🛒 Замены · 🌍 Кухни мира',
       isUser: false,
       timestamp: DateTime.now(),
     ));
@@ -64,76 +51,69 @@ class AiService extends ChangeNotifier {
     _isTyping = true;
     notifyListeners();
 
+    String result;
     try {
-      final result = await _call();
-      _messages.add(ChatMessage(text: result, isUser: false, timestamp: DateTime.now()));
-      _history.add({'role': 'assistant', 'content': result});
-      if (_history.length > 14) _history.removeRange(0, 2);
+      result = await _callGroq();
     } catch (err) {
-      final msg = err.toString();
-      String errorText;
-      if (msg.contains('401') || msg.contains('Unauthorized')) {
-        errorText = '🔑 Ошибка API ключа.';
-      } else if (msg.contains('429')) {
-        errorText = '⏳ Слишком много запросов. Подожди минуту.';
-      } else if (msg.contains('SocketException') || msg.contains('Failed host') || msg.contains('timeout')) {
-        errorText = '📡 Нет интернета. Проверь подключение.';
-      } else {
-        errorText = '⚠️ Что-то пошло не так. Попробуй ещё раз.';
-      }
-      _messages.add(ChatMessage(
-          text: errorText, isUser: false, timestamp: DateTime.now(), isError: true));
+      // Показываем ПОЛНУЮ ошибку для диагностики
+      result = '❌ Ошибка:\n${err.toString()}';
     }
+
+    _messages.add(ChatMessage(
+      text: result,
+      isUser: false,
+      timestamp: DateTime.now(),
+      isError: result.startsWith('❌'),
+    ));
+    _history.add({'role': 'assistant', 'content': result});
+    if (_history.length > 14) _history.removeRange(0, 2);
 
     _isTyping = false;
     notifyListeners();
   }
 
-  Future<String> _call() async {
-    final msgs = [
-      {'role': 'system', 'content': _system},
-      ..._history,
-    ];
-
-    final Map<String, dynamic> payload = {
+  Future<String> _callGroq() async {
+    // Строим payload только из ASCII-safe полей, кириллица — только в messages
+    final payload = <String, dynamic>{
       'model': _model,
-      'messages': msgs,
+      'messages': [
+        {'role': 'system', 'content': _system},
+        ..._history,
+      ],
       'temperature': 0.85,
       'max_tokens': 1024,
     };
 
-    // Кодируем в UTF-8 байты — единственный правильный способ
-    // передавать кириллицу через dart:io HttpClient
-    final List<int> bodyBytes = utf8.encode(jsonEncode(payload));
+    // UTF-8 байты — единственный способ отправить кириллицу через dart:io
+    final bytes = utf8.encode(json.encode(payload));
 
-    final client = HttpClient();
-    client.userAgent =
-        'Mozilla/5.0 (Linux; Android 14; Mobile) '
-        'AppleWebKit/537.36 (KHTML, like Gecko) '
-        'Chrome/120.0.0.0 Mobile Safari/537.36';
+    final client = HttpClient()
+      ..userAgent = 'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36'
+      ..connectionTimeout = const Duration(seconds: 15);
 
     try {
-      final request = await client
+      final req = await client
           .postUrl(Uri.parse(_apiUrl))
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 20));
 
-      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json; charset=utf-8');
-      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.headers.set('Authorization', 'Bearer $_apiKey');
-      request.headers.set(HttpHeaders.contentLengthHeader, bodyBytes.length);
+      req.headers
+        ..set('Authorization', 'Bearer $_apiKey')
+        ..set('Content-Type', 'application/json; charset=utf-8')
+        ..set('Accept', 'application/json')
+        ..set('Content-Length', bytes.length.toString());
 
-      // add() принимает байты — никакой проблемы с кириллицей
-      request.add(bodyBytes);
+      req.add(bytes);
 
-      final response = await request.close().timeout(const Duration(seconds: 30));
-      final responseBody = await response.transform(utf8.decoder).join();
+      final resp = await req.close().timeout(const Duration(seconds: 20));
+      final body = await resp.transform(utf8.decoder).join();
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(responseBody);
+      if (resp.statusCode == 200) {
+        final data = json.decode(body) as Map<String, dynamic>;
         return data['choices'][0]['message']['content'] as String;
-      } else {
-        throw Exception('HTTP ${response.statusCode}');
       }
+
+      // Возвращаем детальную ошибку
+      return '❌ HTTP ${resp.statusCode}\n$body';
     } finally {
       client.close();
     }
