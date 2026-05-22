@@ -258,9 +258,8 @@ class _RecipesTab extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: Stack(children: [
-              Positioned.fill(child: Image.network(
+              Positioned.fill(child: Image.asset(
                 recipe.imageUrl, fit: BoxFit.cover,
-                loadingBuilder: (c, child, p) => p == null ? child : _imgPlaceholder(recipe),
                 errorBuilder: (c, e, s) => _imgPlaceholder(recipe),
               )),
               Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(
