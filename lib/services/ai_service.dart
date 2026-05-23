@@ -7,24 +7,31 @@ class AiService extends ChangeNotifier {
   bool _isTyping = false;
   bool _isInitialized = false;
 
-  static const String _apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
-  static const String _model  = 'llama-3.3-70b-versatile';
-  static const String _apiKey = String.fromEnvironment('GROQ_API_KEY');
+  // Google Gemini — нет Cloudflare, нет блокировок, 1500 запросов/день бесплатно
+  static const String _model  = 'gemini-1.5-flash';
+  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
 
-  final List<Map<String, String>> _history = [];
+  String get _apiUrl =>
+      'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$_apiKey';
 
-  static const String _system =
-    'You are Chef Maxim, a charismatic Russian chef with 20 years of experience. '
-    'You ALWAYS respond in Russian language only. '
-    'You worked in restaurants in Paris, Tokyo and Moscow. '
-    'You love food passionately.\n'
-    'RULES:\n'
-    '1. Answer ONLY about food, cooking, recipes, ingredients, restaurants\n'
-    '2. If asked about anything else - refuse politely in Russian\n'
-    '3. ALWAYS respond in Russian\n'
-    '4. Use emojis naturally\n'
-    '5. Be practical and specific\n'
-    '6. Format recipes with ingredients and steps';
+  final List<Map<String, dynamic>> _history = [];
+
+  static const String _systemInstruction =
+    'You are Chef Maxim, a charismatic professional chef with 20 years of experience '
+    'in top restaurants of Paris, Tokyo and Moscow. You are passionate about food.\n'
+    'YOUR PERSONALITY:\n'
+    '- Speak warmly and passionately about food\n'
+    '- Say things like "О, это моё любимое блюдо!" or "Ах, классика!"\n'
+    '- Share personal stories: "Однажды в Токио я попробовал..."\n'
+    '- Scold bad techniques: "Нет-нет-нет, так не делают!"\n'
+    '- Praise good choices: "Отличный выбор!"\n'
+    'STRICT RULES:\n'
+    '1. Talk ONLY about food, cooking, recipes, ingredients, restaurants, kitchen\n'
+    '2. If asked about anything non-food related, politely refuse in Russian and redirect\n'
+    '3. ALWAYS respond in Russian language\n'
+    '4. Use food emojis naturally\n'
+    '5. Give practical, actionable advice\n'
+    '6. Format recipes with clear ingredients list and numbered steps';
 
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   bool get isTyping => _isTyping;
@@ -33,11 +40,12 @@ class AiService extends ChangeNotifier {
   AiService() { _init(); }
 
   Future<void> _init() async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 400));
     _isInitialized = true;
     _messages.add(ChatMessage(
       text: '👨‍🍳 Добро пожаловать на мою кухню!\n\n'
-          'Я — Шеф Максим. 20 лет готовлю в лучших ресторанах мира!\n\n'
+          'Я — Шеф Максим. 20 лет я готовлю в лучших '
+          'ресторанах Парижа, Токио и Москвы!\n\n'
           '🍽️ Рецепты любой кухни мира\n'
           '🔥 Секреты и техники приготовления\n'
           '🛒 Замена ингредиентов\n'
@@ -53,19 +61,19 @@ class AiService extends ChangeNotifier {
     if (text.trim().isEmpty) return;
 
     _messages.add(ChatMessage(text: text, isUser: true, timestamp: DateTime.now()));
-    _history.add({'role': 'user', 'content': text});
+    _history.add({'role': 'user', 'parts': [{'text': text}]});
     _isTyping = true;
     notifyListeners();
 
     String result;
     try {
-      result = await _callGroq();
+      result = await _callGemini();
+      _history.add({'role': 'model', 'parts': [{'text': result}]});
+      if (_history.length > 20) _history.removeRange(0, 2);
     } catch (err) {
       final msg = err.toString();
-      if (msg.contains('403')) {
-        result = '📡 Нет соединения. Проверь интернет и попробуй ещё раз.';
-      } else if (msg.contains('429')) {
-        result = '⏳ Слишком много запросов. Подожди минуту.';
+      if (msg.contains('429')) {
+        result = '⏳ Слишком много запросов. Подожди немного.';
       } else if (msg.contains('SocketException') || msg.contains('timeout')) {
         result = '📡 Нет интернета. Проверь подключение.';
       } else {
@@ -77,62 +85,57 @@ class AiService extends ChangeNotifier {
       text: result,
       isUser: false,
       timestamp: DateTime.now(),
-      isError: result.startsWith('📡') || result.startsWith('⏳') || result.startsWith('⚠️'),
+      isError: result.startsWith('⏳') || result.startsWith('📡') || result.startsWith('⚠️'),
     ));
-    _history.add({'role': 'assistant', 'content': result});
-    if (_history.length > 14) _history.removeRange(0, 2);
-
     _isTyping = false;
     notifyListeners();
   }
 
-  Future<String> _callGroq() async {
+  Future<String> _callGemini() async {
+    // Gemini API формат: systemInstruction + contents (история)
     final payload = <String, dynamic>{
-      'model': _model,
-      'messages': [
-        {'role': 'system', 'content': _system},
-        ..._history,
-      ],
-      'temperature': 0.85,
-      'max_tokens': 1024,
+      'system_instruction': {
+        'parts': [{'text': _systemInstruction}]
+      },
+      'contents': _history,
+      'generationConfig': {
+        'temperature': 0.85,
+        'maxOutputTokens': 1024,
+      },
     };
 
     final bytes = utf8.encode(json.encode(payload));
 
-    // КЛЮЧЕВОЙ ФИС: persistentConnection = false
-    // Без этого HttpClient переиспользует TCP соединение и Cloudflare
-    // теряет заголовки Auth на втором запросе → 403 Forbidden
     final client = HttpClient()
-      ..userAgent = 'Mozilla/5.0 (Linux; Android 14; Mobile) '
-          'AppleWebKit/537.36 (KHTML, like Gecko) '
-          'Chrome/124.0.0.0 Mobile Safari/537.36'
-      ..connectionTimeout = const Duration(seconds: 15)
-      ..idleTimeout = const Duration(seconds: 1);
+      ..connectionTimeout = const Duration(seconds: 15);
 
     try {
       final req = await client
           .postUrl(Uri.parse(_apiUrl))
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 25));
 
-      // Отключаем keep-alive — каждый запрос новое соединение
-      // Это гарантирует что все заголовки передаются каждый раз
-      req.persistentConnection = false;
-
+      // Gemini не требует Authorization заголовок — ключ в URL
+      // Нет Cloudflare блокировок!
       req.headers
-        ..set('Authorization', 'Bearer $_apiKey')
         ..set('Content-Type', 'application/json; charset=utf-8')
-        ..set('Accept', 'application/json')
-        ..set('Content-Length', bytes.length.toString())
-        ..set('Connection', 'close');
+        ..set('Content-Length', bytes.length.toString());
 
       req.add(bytes);
 
-      final resp = await req.close().timeout(const Duration(seconds: 20));
+      final resp = await req.close().timeout(const Duration(seconds: 25));
       final body = await resp.transform(utf8.decoder).join();
 
       if (resp.statusCode == 200) {
         final data = json.decode(body) as Map<String, dynamic>;
-        return data['choices'][0]['message']['content'] as String;
+        final candidates = data['candidates'] as List<dynamic>;
+        if (candidates.isNotEmpty) {
+          final content = candidates[0]['content'] as Map<String, dynamic>;
+          final parts = content['parts'] as List<dynamic>;
+          if (parts.isNotEmpty) {
+            return parts[0]['text'] as String;
+          }
+        }
+        throw Exception('Пустой ответ от Gemini');
       }
 
       throw Exception('HTTP ${resp.statusCode}: $body');
